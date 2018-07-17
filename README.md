@@ -41,7 +41,7 @@ All in one installations are a good remedy to this challenge. They provide a qui
 | :------------------------- | :------------------------------------------ |
 | All-in-one node            | m1.oc.local                                 |
 | Master/Worker SSH Username | vagrant                                     |
-| SSH Private key            | <PWD>/.vagrant/machines/default/virtualbox/private_key |
+| SSH Private key            | ~/.vagrant.d/insecure_private_key           |
 | Tectonic Web Console       | https://console.oc.local:8443               |
 | Default username           | __admin__                                   |
 | Default password           | __sandbox__                                 |
