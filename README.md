@@ -16,7 +16,6 @@ All in one installations are a good remedy to this challenge. They provide a qui
 
     git clone git@github.com:spuranam/ldev.git
     ```
-    > ⚠ NOTE: On windows you should execute these commands in powershell running in administrative context.
 1. copy the file [./RHSM.env.tpl](RHSM.env.tpl) to RHSM.env, update the file RHSM.env with your RHSM info, note do not modify the value of RHSM_ORG
 1. Execute the command:
     ```
@@ -29,6 +28,7 @@ All in one installations are a good remedy to this challenge. They provide a qui
         MASTER_VM_CPUS=4 \
         vagrant up --provision
     ```
+    > ⚠ NOTE: On windows you should execute these commands in powershell running in administrative context.
 1. Access the GUI [https://console.oc.local:8443](https://console.oc.local:8443)
     ```
     Username: admin
