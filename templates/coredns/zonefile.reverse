@@ -1,0 +1,16 @@
+; Zone file for {{OPENSHIFT_DOMAIN}}
+$TTL    1800
+$ORIGIN {{OPENSHIFT_REVERSE_DOMAIN}}.
+@        1D     IN  SOA   ns1.{{OPENSHIFT_DOMAIN}}. hostmaster.{{OPENSHIFT_DOMAIN}}. (
+                              3          ; serial
+                              300        ; refresh period (in secs)
+                              1800       ; retry period (in secs)
+                              14400      ; expire time (in secs)
+                              300        ; nxdomain ttl (in secs)
+                             )
+; Name servers for the zone
+@                IN  NS     ns1.{{OPENSHIFT_DOMAIN}}.
+
+; PTR records
+{{MASTER_IP_REVERSE_OCTETS_1}}   IN PTR  {{MASTER_HOSTNAME}}.{{OPENSHIFT_DOMAIN}}.
+{{INFRA_IP_REVERSE_OCTETS_1}}   IN PTR  {{INFRA_HOSTNAME}}.{{OPENSHIFT_DOMAIN}}.

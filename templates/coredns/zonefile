@@ -1,0 +1,19 @@
+; Zone file for {{OPENSHIFT_DOMAIN}}
+$TTL    1800
+$ORIGIN {{OPENSHIFT_DOMAIN}}.
+@        1D     IN  SOA   ns1.{{OPENSHIFT_DOMAIN}}. hostmaster.{{OPENSHIFT_DOMAIN}}. (
+                              3          ; serial
+                              300        ; refresh period (in secs)
+                              1800       ; retry period (in secs)
+                              14400      ; expire time (in secs)
+                              300        ; nxdomain ttl (in secs)
+                             )
+;@        10     IN  MX    mail.{{OPENSHIFT_DOMAIN}}. ; external mail provider
+          3600   IN  NS    ns1.{{OPENSHIFT_DOMAIN}}.  ; in the domain
+ns1       3600   IN  A     127.0.0.1
+{{MASTER_HOSTNAME}}        3600   IN  A     {{MASTER_IP}}   ; IPv4 address for {{MASTER_HOSTNAME}}.{{OPENSHIFT_DOMAIN}}
+{{INFRA_HOSTNAME}}        3600   IN  A     {{INFRA_IP}}   ; IPv4 address for {{INFRA_HOSTNAME}}.{{OPENSHIFT_DOMAIN}}
+console   3600   IN  A     {{MASTER_IP}}   ; IPv4 address for console.{{OPENSHIFT_DOMAIN}}
+api       3600   IN  A     {{MASTER_IP}}   ; IPv4 address for api.{{OPENSHIFT_DOMAIN}}
+api-int   3600   IN  A     {{MASTER_IP}}   ; IPv4 address for api-int.{{OPENSHIFT_DOMAIN}}
+*.apps    60     IN  CNAME {{MASTER_HOSTNAME}}.{{OPENSHIFT_DOMAIN}}.   ; wildcard alias that will forward all requests to the *.apps.{{OPENSHIFT_DOMAIN}} to {{MASTER_HOSTNAME}}.{{OPENSHIFT_DOMAIN}}
