@@ -55,7 +55,8 @@ All in one installations are a good remedy to this challenge. They provide a qui
 | Default username           | __admin__                                   |
 | Default password           | __sandbox__                                 |
 | KUBECONFIG                 | <PWD>/artifacts/.kube/config                |
-| StorageClass Name          | az1                                         |
+| StorageClass Name (file)   | glusterfs-storage                           |
+| StorageClass Name (block)  | glusterfs-storage-block                     |
 | Wildcard Ingress URI       | *.apps.oc.local                             |
 
->NOTE: StorageClass __DO NOT__ yet work in OpenShift
+>NOTE: Currently Only file StorageClass works.
