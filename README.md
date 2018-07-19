@@ -32,7 +32,7 @@ All in one installations are a good remedy to this challenge. They provide a qui
     > ⚠ NOTE: On windows you should execute these commands in powershell running in administrative context.
 1. Execute the command to install OpenShift Origin:
     ```
-    OPENSHIFT_DEPLOYMENT_TYPE='origin'\
+    OPENSHIFT_DEPLOYMENT_TYPE='origin' \
     MASTER_VM_MEMORY=8192 \
     MASTER_VM_CPUS=4 \
     vagrant up --provision
