@@ -54,7 +54,7 @@ All in one installations are a good remedy to this challenge. They provide a qui
 | Tectonic Web Console       | https://console.oc.local:8443               |
 | Default username           | __admin__                                   |
 | Default password           | __sandbox__                                 |
-| KUBECONFIG                 | <PWD>/artifacts/.kube/config                |
+| KUBECONFIG                 | ./artifacts/.kube/config                    |
 | StorageClass Name (file)   | glusterfs-storage                           |
 | StorageClass Name (block)  | glusterfs-storage-block                     |
 | Wildcard Ingress URI       | *.apps.oc.local                             |
