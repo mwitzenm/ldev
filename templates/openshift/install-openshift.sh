@@ -12,7 +12,6 @@ echo "DEFAULT_HOST_IP=$DEFAULT_HOST_IP"
 
 # Manually configure DNS settings on teh guest to refer to CoreDNS on the host.
 nmcli con mod "System eth0" ipv4.dns "${DEFAULT_HOST_IP}"
-# echo "PEERDNS=no" >> /etc/sysconfig/network-scripts/ifcfg-eth0
 nmcli con mod "System eth0" ipv4.ignore-auto-dns yes
 systemctl restart NetworkManager
 
@@ -176,17 +175,41 @@ fi
 
 ## Generate ssh key pairs
 if [ ! -f ~/.ssh/id_rsa ]; then
+cat <<VAGRANT_ID_RSA > /home/vagrant/.ssh/id_rsa
+-----BEGIN RSA PRIVATE KEY-----
+MIIEogIBAAKCAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzI
+w+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoP
+kcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2
+hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NO
+Td0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcW
+yLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQIBIwKCAQEA4iqWPJXtzZA68mKd
+ELs4jJsdyky+ewdZeNds5tjcnHU5zUYE25K+ffJED9qUWICcLZDc81TGWjHyAqD1
+Bw7XpgUwFgeUJwUlzQurAv+/ySnxiwuaGJfhFM1CaQHzfXphgVml+fZUvnJUTvzf
+TK2Lg6EdbUE9TarUlBf/xPfuEhMSlIE5keb/Zz3/LUlRg8yDqz5w+QWVJ4utnKnK
+iqwZN0mwpwU7YSyJhlT4YV1F3n4YjLswM5wJs2oqm0jssQu/BT0tyEXNDYBLEF4A
+sClaWuSJ2kjq7KhrrYXzagqhnSei9ODYFShJu8UWVec3Ihb5ZXlzO6vdNQ1J9Xsf
+4m+2ywKBgQD6qFxx/Rv9CNN96l/4rb14HKirC2o/orApiHmHDsURs5rUKDx0f9iP
+cXN7S1uePXuJRK/5hsubaOCx3Owd2u9gD6Oq0CsMkE4CUSiJcYrMANtx54cGH7Rk
+EjFZxK8xAv1ldELEyxrFqkbE4BKd8QOt414qjvTGyAK+OLD3M2QdCQKBgQDtx8pN
+CAxR7yhHbIWT1AH66+XWN8bXq7l3RO/ukeaci98JfkbkxURZhtxV/HHuvUhnPLdX
+3TwygPBYZFNo4pzVEhzWoTtnEtrFueKxyc3+LjZpuo+mBlQ6ORtfgkr9gBVphXZG
+YEzkCD3lVdl8L4cw9BVpKrJCs1c5taGjDgdInQKBgHm/fVvv96bJxc9x1tffXAcj
+3OVdUN0UgXNCSaf/3A/phbeBQe9xS+3mpc4r6qvx+iy69mNBeNZ0xOitIjpjBo2+
+dBEjSBwLk5q5tJqHmy/jKMJL4n9ROlx93XS+njxgibTvU6Fp9w+NOFD/HvxB3Tcz
+6+jJF85D5BNAG3DBMKBjAoGBAOAxZvgsKN+JuENXsST7F89Tck2iTcQIT8g5rwWC
+P9Vt74yboe2kDT531w8+egz7nAmRBKNM751U/95P9t88EDacDI/Z2OwnuFQHCPDF
+llYOUI+SpLJ6/vURRbHSnnn8a/XG+nzedGH5JGqEJNQsz+xT2axM0/W/CRknmGaJ
+kda/AoGANWrLCz708y7VYgAtW2Uf1DPOIYMdvo6fxIB5i9ZfISgcJ/bbCUkFrhoH
++vq/5CIWxCPp0f85R4qxxQ5ihxJ0YDQT9Jpx4TMss4PSavPaBH3RXow5Ohe+bYoQ
+NE5OgEXk2wVfZczCZpigBKbKZHNYcelXtTt/nP3rsCuGcM4h53s=
+-----END RSA PRIVATE KEY-----
+VAGRANT_ID_RSA
+
     mkdir -p /root/.ssh
-    cp -v /home/vagrant/.ssh/id_rsa /root/.ssh
-    cp -v /home/vagrant/.ssh/authorized_keys /root/.ssh
+    rsync -rIq /home/vagrant/.ssh/ /root/.ssh/
     chmod -R 600 /root/.ssh
-    if [ "$(hostname)" = "${INFRA_FQDN}" ]; then
-        ssh -o StrictHostKeyChecking=no root@$INFRA_IP "pwd" < /dev/null
-        ssh -o StrictHostKeyChecking=no root@$INFRA_FQDN "pwd" < /dev/null
-    elif [ "$(hostname)" = "${MASTER_FQDN}" ]; then
-        ssh -o StrictHostKeyChecking=no root@$MASTER_IP "pwd" < /dev/null
-        ssh -o StrictHostKeyChecking=no root@$MASTER_FQDN "pwd" < /dev/null
-    fi
+    ssh -o StrictHostKeyChecking=no root@$(hostname -i) "pwd" < /dev/null
+    ssh -o StrictHostKeyChecking=no root@$(hostname -f) "pwd" < /dev/null
 fi
 
 # other steps are required only on master node
@@ -267,9 +290,9 @@ fi
 # BUG FIX:(in 3.9.31 release) https://github.com/openshift/openshift-ansible/issues/7596#issuecomment-403241883
 if [ "${OPENSHIFT_DEPLOYMENT_TYPE}" = "openshift-enterprise" ]; then
     # yum --showduplicates list openshift-ansible
-    if [ "$(rpm -qa openshift-ansible --qf "%{VERSION}")" = "3.9.31" ]; then
-        sed -i "95s/{{ hostvars\[inventory_hostname\] | certificates_to_synchronize }}/{{ hostvars\[inventory_hostname\]\['ansible_facts'\] | certificates_to_synchronize }}/" $ANSIBLE_ROOT/openshift-ansible/roles/openshift_master_certificates/tasks/main.yml
-    fi
+    #if [ "$(rpm -qa openshift-ansible --qf "%{VERSION}")" = "3.9.33" ]; then
+    sed -i "95s/{{ hostvars\[inventory_hostname\] | certificates_to_synchronize }}/{{ hostvars\[inventory_hostname\]\['ansible_facts'\] | certificates_to_synchronize }}/" $ANSIBLE_ROOT/openshift-ansible/roles/openshift_master_certificates/tasks/main.yml
+    #fi
 fi
 
 # Single node GlusterFS/CNS
@@ -279,41 +302,72 @@ fi
 #  https://github.com/heketi/heketi/blob/master/client/cli/go/cmds/volume.go#L130
 #  https://github.com/heketi/heketi/blob/master/client/cli/go/cmds/heketi_storage.go#L64
 #  https://docs.oracle.com/en/solutions/set-up-gluster-file-system/index.html#GUID-602A6F75-7927-43B4-B2AD-4CF145F29660
+#  https://kubernetes.io/docs/concepts/storage/storage-classes/#glusterfs
+#  https://github.com/kubernetes-incubator/external-storage/tree/master/gluster/block
 sed -i "s|--listfile /tmp/heketi-storage.json|--listfile /tmp/heketi-storage.json --durability=none|" $ANSIBLE_ROOT/openshift-ansible/roles/openshift_storage_glusterfs/tasks/heketi_deploy_part2.yml
 sed -i "s@glusterfs_nodes | count >= 3@glusterfs_nodes | count >= 1@" $ANSIBLE_ROOT/openshift-ansible/roles/openshift_storage_glusterfs/tasks/glusterfs_deploy.yml
 
-#if [ "${OPENSHIFT_RELEASE_MAJOR_VERSION}" = "3.9"]; then
-#    # https://github.com/gluster/gluster-kubernetes/blob/master/docs/examples/containerized_heketi_dedicated_gluster/README.md#create-a-storage-class
-#    sed -i '/^parameters:/a\  volumetype: "replicate:1"' $ANSIBLE_ROOT/openshift-ansible/roles/openshift_storage_glusterfs/templates/v3.9/glusterfs-storageclass.yml.j2
-#    # https://github.com/gluster/gluster-kubernetes/blob/master/docs/design/gluster-block-provisioning.md#details-about-the-glusterblock-provisioner
-#    sed -i 's/hacount: "3"/hacount: "1"/' $ANSIBLE_ROOT/openshift-ansible/roles/openshift_storage_glusterfs/templates/v3.9/gluster-block-storageclass.yml.j2
-#    # https://github.com/gluster/gluster-kubernetes/tree/master/docs/examples/gluster-s3-storage-template
-#    # $ANSIBLE_ROOT/openshift-ansible/roles/openshift_storage_glusterfs/templates/gluster-s3-storageclass.yml.j2
-#else
-#    # https://github.com/gluster/gluster-kubernetes/blob/master/docs/examples/containerized_heketi_dedicated_gluster/README.md#create-a-storage-class
-#    sed -i '/^parameters:/a\  volumetype: "replicate:1"' $ANSIBLE_ROOT/openshift-ansible/roles/openshift_storage_glusterfs/templates/glusterfs-storageclass.yml.j2
-#    # https://github.com/gluster/gluster-kubernetes/blob/master/docs/design/gluster-block-provisioning.md#details-about-the-glusterblock-provisioner
-#    sed -i 's/hacount: "3"/hacount: "1"/' $ANSIBLE_ROOT/openshift-ansible/roles/openshift_storage_glusterfs/templates/gluster-block-storageclass.yml.j2
-#    # https://github.com/gluster/gluster-kubernetes/tree/master/docs/examples/gluster-s3-storage-template
-#    # $ANSIBLE_ROOT/openshift-ansible/roles/openshift_storage_glusterfs/templates/gluster-s3-storageclass.yml.j2
-#fi
+## https://github.com/gluster/gluster-kubernetes/blob/master/docs/examples/containerized_heketi_dedicated_gluster/README.md#create-a-storage-class
+##sed -i '/^parameters:/a\  volumetype: "replicate:1"' $ANSIBLE_ROOT/openshift-ansible/roles/openshift_storage_glusterfs/templates/v3.9/glusterfs-storageclass.yml.j2
+#sed -i '/^parameters:/a\  volumetype: "none"' $ANSIBLE_ROOT/openshift-ansible/roles/openshift_storage_glusterfs/templates/v3.9/glusterfs-storageclass.yml.j2
+## https://github.com/gluster/gluster-kubernetes/blob/master/docs/design/gluster-block-provisioning.md#details-about-the-glusterblock-provisioner
+#sed -i 's/hacount: "3"/hacount: "1"/' $ANSIBLE_ROOT/openshift-ansible/roles/openshift_storage_glusterfs/templates/v3.9/gluster-block-storageclass.yml.j2
+## https://github.com/gluster/gluster-kubernetes/tree/master/docs/examples/gluster-s3-storage-template
+## $ANSIBLE_ROOT/openshift-ansible/roles/openshift_storage_glusterfs/templates/gluster-s3-storageclass.yml.j2
 
-#oc patch storageclass glusterfs-storage -p '{"parameters":{"volumetype":{"replicate":"1"}}}'
-#oc patch storageclass glusterfs-storage-block -p '{"parameters":{"hacount":"1"}}'
-#oc get storageclass glusterfs-storage-block -o yaml > glusterfs-storage-block.yaml
-#oc get storageclass glusterfs-storage -o yaml > glusterfs-storage.yaml
-#oc delete storageclass glusterfs-storage
-#oc delete storageclass glusterfs-storage-block
-#oc create -f glusterfs-storage-block.yaml
-#oc create -f glusterfs-storage.yaml
+## USE_TIGERA_CNX
+if [ "${USE_TIGERA_CNX}" = "true" ]; then
+    echo "TODO"
+fi
 
 # Deploy OpenShift
 ansible-playbook -vvv -i $SCRIPT_ROOT/inventory.ini $ANSIBLE_ROOT/openshift-ansible/playbooks/prerequisites.yml 2>&1
 ansible-playbook -vvv -i $SCRIPT_ROOT/inventory.ini $ANSIBLE_ROOT/openshift-ansible/playbooks/deploy_cluster.yml 2>&1
 
-## Generate encrypted password
-## https://bugzilla.redhat.com/show_bug.cgi?id=1565447
-#htpasswd -b /etc/origin/master/htpasswd ${OPENSHIFT_USER_NAME} ${OPENSHIFT_USER_PASSWD}
+oc delete storageclass glusterfs-storage       || true
+oc delete storageclass glusterfs-storage-block || true
+
+# https://icicimov.github.io/blog/virtualization/Kubernetes-shared-storage-with-external-GlusterFS-backend/
+# https://docs.openshift.com/container-platform/3.4/install_config/storage_examples/gluster_dynamic_example.html
+# https://medium.com/cooking-with-azure/multipath-iscsi-in-azure-with-glusterfs-and-gluster-block-on-rhel-f64e5f7a9ec3
+# https://pkalever.wordpress.com/2017/03/14/elasticsearch-with-gluster-block/
+cat <<EOF | oc create -f -
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+  name: glusterfs-storage
+  namespace: ""
+parameters:
+  volumetype: "none"
+  resturl: http://heketi-storage-glusterfs.apps.${OPENSHIFT_DOMAIN}
+  restuser: admin
+  secretName: heketi-storage-admin-secret
+  secretNamespace: glusterfs
+provisioner: kubernetes.io/glusterfs
+reclaimPolicy: Delete
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: glusterfs-storage-block
+  namespace: ""
+parameters:
+  chapauthenabled: "true"
+  hacount: "1"
+  restsecretname: heketi-storage-admin-secret-block
+  restsecretnamespace: glusterfs
+  resturl: http://heketi-storage-glusterfs.apps.${OPENSHIFT_DOMAIN}
+  restuser: admin
+provisioner: gluster.org/glusterblock
+reclaimPolicy: Delete
+EOF
+
+## USE_TIGERA_CNX
+if [ "${USE_TIGERA_CNX}" = "true" ]; then
+    echo "TODO, deploy Tigera CNX manager"
+fi
 
 # Create default user account
 echo " "
