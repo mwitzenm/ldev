@@ -17,7 +17,8 @@ All in one installations are a good remedy to this challenge. They provide a qui
     git clone git@github.com:spuranam/ldev.git
     ```
 1. copy the file [./RHSM.env.tpl](RHSM.env.tpl) to RHSM.env, update the file RHSM.env with your RHSM info, note do not modify the value of RHSM_ORG
-1. Execute the command:
+> NOTE: This is only required if you intend to install OpenShift Enterprise
+1. Execute the command to install OpenShift Enterprise:
     ```
     source $(pwd)/RHSM.env && \
         RHSM_USERNAME="${RHSM_USERNAME}" \
@@ -27,6 +28,14 @@ All in one installations are a good remedy to this challenge. They provide a qui
         MASTER_VM_MEMORY=8192 \
         MASTER_VM_CPUS=4 \
         vagrant up --provision
+    ```
+    > ⚠ NOTE: On windows you should execute these commands in powershell running in administrative context.
+1. Execute the command to install OpenShift Origin:
+    ```
+    OPENSHIFT_DEPLOYMENT_TYPE='origin'\
+    MASTER_VM_MEMORY=8192 \
+    MASTER_VM_CPUS=4 \
+    vagrant up --provision
     ```
     > ⚠ NOTE: On windows you should execute these commands in powershell running in administrative context.
 1. Access the GUI [https://console.oc.local:8443](https://console.oc.local:8443)
