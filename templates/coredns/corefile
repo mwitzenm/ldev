@@ -15,6 +15,24 @@
     # Cache all responses for 1 minute (60 seconds) from upstream resolvers
     cache 60
 }
+##{{OPENSHIFT_DOMAIN}}
+#4.17.172.in-addr.arpa:53 {{OPENSHIFT_DOMAIN}}:53 {
+#
+#    # DNS zone file for this domain
+#    file {{CLUSTER_ZONEFILE}} {{OPENSHIFT_DOMAIN}}
+#
+#    # DNS reverse records for this domain
+#    file {{CLUSTER_REVERSE_ZONEFILE}} {{OPENSHIFT_REVERSE_DOMAIN}}
+#
+#    # All other requests are proxied to your default DNS server
+#    proxy . {{UPSTREAM_DNS_SERVERS}}
+#
+#    errors  # log errors to stdout
+#    log     # logs DNS queries to stdout
+#
+#    # Cache all responses for 1 minute (60 seconds) from upstream resolvers
+#    cache 60
+#}
 .:53 {
     # DNS reverse records for this domain
     #file {{CLUSTER_REVERSE_ZONEFILE}} {{OPENSHIFT_REVERSE_DOMAIN}}

@@ -95,11 +95,19 @@ sed -i -e "s|https://api.oc.local|https://${MASTER_IP}|g" /home/vagrant/share/ar
 
 echo "Copying kubeconfig file to /home/vagrant/.kube"
 rsync -rIq --exclude=http-cache --exclude=api_int.oc.local_8443 /root/.kube /home/vagrant/
+chown -R vagrant:vagrant /home/vagrant/.kube
 
 echo " "
 echo "OpenShift CLI:"
 echo "-----------------------------------------------------"
 echo "  https://api.${OPENSHIFT_DOMAIN}:${OPENSHIFT_API_PORT}/console/command-line"
+echo " "
+
+echo " "
+echo "OpenShift CLI Bash completion:"
+echo "-----------------------------------------------------"
+echo "  source <(oc completion bash)"
+echo "  source <(oc completion zsh)"
 echo " "
 
 echo "KubeConfig MacOS/Linux:"

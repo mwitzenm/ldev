@@ -14,17 +14,25 @@ require 'vagrant/util/which'
 
 LOCAL_DEV_VERSION            = '3.9.33-1'
 
-OPENSHIFT_USE_GIT_RELEASE    = ENV['OPENSHIFT_USE_GIT_RELEASE'] || true
-ENABLE_HTTP_PROXY            = ENV['ENABLE_HTTP_PROXY'] || false
 SKIP_HTTP_PROXY              = ENV['SKIP_HTTP_PROXY'] || false
-SKIP_LDEV_OFFLINE_CACHE      = ENV['SKIP_LDEV_OFFLINE_CACHE'] || false
-
-CAAS_VAGRANT_BOX_REPOSITORY  = ENV['CAAS_VAGRANT_BOX_REPOSITORY'] || ''
+ENABLE_HTTP_PROXY            = ENV['ENABLE_HTTP_PROXY'] || false
+OPENSHIFT_CONTAINERIZED      = ENV['OPENSHIFT_CONTAINERIZED'] || true
+OPENSHIFT_USE_CALICO_SDN     = ENV['OPENSHIFT_USE_CALICO_SDN'] || true
+OPENSHIFT_USE_TIGERA_CNX     = ENV['OPENSHIFT_USE_TIGERA_CNX'] || false
+OPENSHIFT_DEPLOY_LOGGING     = ENV['OPENSHIFT_DEPLOY_LOGGING'] || true
+OPENSHIFT_DEPLOY_MONITORING  = ENV['OPENSHIFT_DEPLOY_MONITORING'] || true
+OPENSHIFT_USE_GIT_RELEASE    = ENV['OPENSHIFT_USE_GIT_RELEASE'] || true
 
 ADDITIONAL_SYNCED_FOLDERS    = ENV['ADDITIONAL_SYNCED_FOLDERS'] || ''
 
+# Minimum version of vagrant required
+MIN_VAGRANT_VERSION          = '2.1.0'
+
+# Minimum version of virtualbox required
+MIN_VIRTUALBOX_VERSION       = '5.2.12'
+
 # CoreDNS version, https://coredns.io/
-COREDNS_VERSION              = ENV['COREDNS_VERSION'] || '1.1.4'
+COREDNS_VERSION              = ENV['COREDNS_VERSION'] || '1.2.0'
 
 # Windows service manager verion, https://nssm.cc/download
 NSSM_VERSION                 = ENV['NSSM_VERSION'] || '2.24'
@@ -36,7 +44,7 @@ KUBECTL_VERSION              = ENV['KUBECTL_VERSION'] || '1.9.1'
 OPENSHIFT_DEPLOYMENT_TYPE    = ENV['OPENSHIFT_DEPLOYMENT_TYPE'] || 'openshift-enterprise'
 
 # This should match the git branch name
-# See for example:
+# for example:
 #    https://github.com/openshift/origin/tree/release-3.9
 #    yum --showduplicates list openshift-ansible
 OPENSHIFT_RELEASE_MAJOR_VERSION    = ENV['OPENSHIFT_RELEASE_MAJOR_VERSION'] || '3.9'
@@ -77,26 +85,21 @@ OPENSHIFT_PKG_VERSION        = ENV['OPENSHIFT_PKG_VERSION'] || "-#{OPENSHIFT_REL
 # This could potentially trigger an upgrade and downtime, so be careful with modifying this value after the cluster is set up.
 OPENSHIFT_IMAGE_TAG          = ENV['OPENSHIFT_IMAGE_TAG'] || "v#{OPENSHIFT_RELEASE_MAJOR_VERSION}.#{OPENSHIFT_RELEASE_MINOR_VERSION}"
 
-OPENSHIFT_USE_CALICO_SDN     = ENV['OPENSHIFT_USE_CALICO_SDN'] || 'true'
-
 # https://docs.openshift.org/latest/install_config/configuring_sdn.html
 # redhat/openshift-ovs-subnet (default) | redhat/openshift-ovs-multitenant | redhat/openshift-ovs-networkpolicy
 OS_SDN_NETWORK_PLUGIN_NAME   = ENV['OS_SDN_NETWORK_PLUGIN_NAME'] || 'redhat/openshift-ovs-multitenant'
-USE_TIGERA_CNX               = ENV['USE_TIGERA_CNX'] || 'false'
 CALICO_IPV4POOL_IPIP         = ENV['CALICO_IPV4POOL_IPIP'] || 'never'
 CALICO_URL_POLICY_CONTROLLER = ENV['CALICO_URL_POLICY_CONTROLLER'] || 'quay.io/calico/kube-controllers:v3.1.3'
+CNX_NODE_IMAGE               = ENV['CNX_NODE_IMAGE'] || 'quay.io/tigera/cnx-node:v2.1.1'
 CALICO_NODE_IMAGE            = ENV['CALICO_NODE_IMAGE'] || 'quay.io/calico/node:v3.1.3'
 CALICO_CNI_IMAGE             = ENV['CALICO_CNI_IMAGE'] || 'quay.io/calico/cni:v3.1.3'
 CALICO_UPGRADE_IMAGE         = ENV['CALICO_UPGRADE_IMAGE'] || 'quay.io/calico/upgrade:v1.0.5'
 CALICO_ETCD_IMAGE            = ENV['CALICO_ETCD_IMAGE'] || 'quay.io/coreos/etcd:v3.2.5'
 
-# Deploy containerized openshift
-OPENSHIFT_CONTAINERIZED      = ENV['OPENSHIFT_CONTAINERIZED'] || 'true'
-
 # master API and console ports
 OPENSHIFT_API_PORT           = '8443'
 
-# DNS TLD
+# Localdev DNS top level domain name
 OPENSHIFT_DOMAIN             = 'oc.local'
 
 # Default username that's auto created at the cluster creation time
@@ -127,32 +130,26 @@ INFRA_IP_REVERSE_OCTETS_234  = INFRA_IP.split('.').reverse.slice(1,3).join('.')
 # https://docs.openshift.org/latest/install_config/install/host_preparation.html#setting-global-proxy
 OPENSHIFT_SDN_NETWORK_AND_SERVICE_IP_RANGES = '10.128.0.0/14, 172.30.0.0/16, 172.30.0.1'
 
-DEFAULT_HTTP_PROXY           = ENV['DEFAULT_HTTP_PROXY']  || "http://my.http.proxy:83"
-DEFAULT_HTTPS_PROXY          = ENV['DEFAULT_HTTPS_PROXY'] || "http://my.http.proxy:83"
-DEFAULT_NO_PROXY             = ENV['DEFAULT_NO_PROXY']    || "127.0.0.1,localhost,.ford.com,.local,.svc,#{OPENSHIFT_SDN_NETWORK_AND_SERVICE_IP_RANGES},#{MASTER_IP},#{INFRA_IP}"
+DEFAULT_HTTP_PROXY           = ENV['DEFAULT_HTTP_PROXY']  || "http://mycorp.com:83"
+DEFAULT_HTTPS_PROXY          = ENV['DEFAULT_HTTPS_PROXY'] || "http://mycorp.com:83"
+DEFAULT_NO_PROXY             = ENV['DEFAULT_NO_PROXY']    || "127.0.0.1,localhost,.mycorp.com,.local,.svc,#{OPENSHIFT_SDN_NETWORK_AND_SERVICE_IP_RANGES},#{MASTER_IP},#{INFRA_IP}"
 
 VM_STORAGE_DISK_SIZE_IN_GB   = ENV['VM_STORAGE_DISK_SIZE_IN_GB'] || 250
 INFRA_VM_DISK_COUNT          = 1
 MASTER_VM_DISK_COUNT         = 3
-VBOX_DISK_CONTROLLER         = 'VboxSATA'
+VBOX_DISK_CONTROLLER         = 'CaaSVboxSATA'
 
-RHSM_USERNAME                 = ENV['RHSM_USERNAME'] || ''
-RHSM_ORG                      = ENV['RHSM_ORG'] || ''
-RHSM_PASSWORD_ACT_KEY         = ENV['RHSM_PASSWORD_ACT_KEY'] || ''
-RHSM_POOLID                   = ENV['RHSM_POOLID'] || ''
+RHSM_ORG                     = ENV['RHSM_ORG'] || ''
+RHSM_ACTIVATION_KEY          = ENV['RHSM_ACTIVATION_KEY'] || ''
 
 #CENTOS_BOX_URL                = ENV['CENTOS_BOX_URL'] || 'https://cloud.centos.org/centos/7/vagrant/x86_64/images/CentOS-7-x86_64-Vagrant-1804_02.VirtualBox.box'
-CENTOS_BOX_URL                = ENV['CENTOS_BOX_URL'] || 'https://app.vagrantup.com/centos/boxes/7'
-CENTOS_BOX_NAME               = ENV['CENTOS_BOX_NAME'] || 'centos/7'
+CENTOS_BOX_URL               = ENV['CENTOS_BOX_URL'] || 'https://app.vagrantup.com/centos/boxes/7'
+CENTOS_BOX_NAME              = ENV['CENTOS_BOX_NAME'] || 'centos/7'
 
-RHEL_BOX_URL                  = ENV['RHEL_BOX_URL'] || 'https://app.vagrantup.com/generic/boxes/rhel7'
-RHEL_BOX_NAME                 = ENV['RHEL_BOX_NAME'] || 'generic/rhel7'
+RHEL_BOX_URL                 = ENV['RHEL_BOX_URL'] || 'https://app.vagrantup.com/generic/boxes/rhel7'
+RHEL_BOX_NAME                = ENV['RHEL_BOX_NAME'] || 'generic/rhel7'
 
-#RHEL_BOX_URL                  = ENV['RHEL_BOX_URL'] || 'https://app.vagrantup.com/samdoran/boxes/rhel7'
-#RHEL_BOX_NAME                 = ENV['RHEL_BOX_NAME'] || 'samdoran/rhel7'
-
-# https://www.vagrantup.com/docs/other/environmental-variables.html#vagrant_no_color
-ENV['VAGRANT_NO_COLOR']    = 'true'
+ENV['VAGRANT_NO_COLOR']      = 'true'
 #ENV['VAGRANT_SERVER_URL']  = 'http://localhost:8099'
 
 if Vagrant::Util::Platform.windows?
@@ -162,7 +159,11 @@ else
     DEFAULT_USER_HOME = ENV['HOME']
 end
 
-# required_plugins = %w(vagrant-triggers vagrant-sshfs vagrant-cachier)
+TRUTHY_VALUES = [true, 1, '1', 't', 'T', 'true', 'TRUE', 'y', 'Y', 'yes', 'YES']
+
+FALSY_VALUES = [false, 0, '0', 'f', 'F', 'false', 'FALSE', 'n', 'N', 'no', 'NO']
+
+# required_plugins = %w(vagrant-sshfs vagrant-cachier)
 required_plugins = %w()
 
 # Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
@@ -196,9 +197,16 @@ def calculate_resource_allocation
     master_cpus = 2
 
     # Assign max of 57% of total installed memory or 5120MB to master nodes
-    master_memory = [5120, ((max_memory * 0.72 * 0.80) - infra_memory) ].max.to_i
+    # master_memory = [5120, ((max_memory * 0.72 * 0.80) - infra_memory) ].max.to_i
+
     # Assign max of 48% of total installed cpus or 2 vCPUs to worker nodes
-    master_cpus = [2, (cpus * 0.60 * 0.80)].max.to_i
+    #master_cpus = [2, (cpus * 0.60 * 0.80)].max.to_i
+
+    # Assign 50% of host memory to the guest
+    master_memory = (max_memory * 0.50).to_i
+
+    # Assign 50% of host cpu to the guest
+    master_cpus = (cpus * 0.50).to_i
 
     {max_memory: max_memory, cpus: cpus, master_memory: master_memory, master_cpus: master_cpus, infra_memory: infra_memory, infra_cpus: infra_cpus}
 end
@@ -274,7 +282,7 @@ class ValidationError < StandardError
     end
 end
 
-Vagrant.require_version ">= 2.1.0"
+Vagrant.require_version ">= #{MIN_VAGRANT_VERSION}"
 
 UI.info "OpenShift localdev v#{LOCAL_DEV_VERSION}".yellow
 
@@ -285,7 +293,42 @@ if Vagrant::Util::Platform.windows?
     end
 end
 
-def on_ford_network?
+def redefine_constant(env_var)
+    if ENV.has_key?(env_var)
+        Object.redefine_const(eval(":#{env_var}"), true) if TRUTHY_VALUES.include? ENV[env_var]
+    end
+end
+
+def fetch(uri_str, use_proxy = 'false', limit = 10)
+    raise ArgumentError, 'HTTP redirect too deep' if limit == 0
+
+    url = URI.parse(uri_str)
+    req = Net::HTTP::Get.new(url.request_uri, { 'User-Agent' => 'Mozilla/5.0' })
+    if use_proxy == 'true' then
+        proxy_url = URI.parse(DEFAULT_HTTP_PROXY)
+        ## TODO: Authenticated proxy
+        # response = Net::HTTP.start(url.host, url.port, proxy_url.host, proxy_url.port, 'proxy_user', 'proxy_pass') { |http| http.request(req) }
+        response = Net::HTTP.start(url.host, url.port, proxy_url.host, proxy_url.port) { |http| http.request(req) }
+    else
+        response = Net::HTTP.start(url.host, url.port) { |http| http.request(req) }
+    end
+    case response
+    when Net::HTTPSuccess     then response
+    when Net::HTTPRedirection then fetch(response['location'], limit - 1)
+    else
+      response.error!
+    end
+end
+
+def traverse_http_proxy?
+    if fetch('http://google.com/').kind_of? Net::HTTPSuccess then
+        return false
+    elsif fetch('http://google.com/', 'true').kind_of? Net::HTTPSuccess
+        return true
+    end
+end
+
+def on_corporate_network?
     addr_infos = Socket.ip_address_list
     ip_addr = nil
     addr_infos.each do |addr_info|
@@ -303,7 +346,7 @@ def first_public_ipv4
 end
 
 if !SKIP_HTTP_PROXY then
-    if on_ford_network? or ENABLE_HTTP_PROXY then
+    if on_corporate_network? or ENABLE_HTTP_PROXY then
         Object.redefine_const(:ENABLE_HTTP_PROXY, true)
         # These environment variables only exists in the context of vagrant process only.
         # These are required so that vagrant download plugins, coredns, ct, and nssm from public internet
@@ -387,6 +430,11 @@ def virtualbox_version()
     end
 end
 
+if Gem::Version.new(virtualbox_version) < Gem::Version.new(MIN_VIRTUALBOX_VERSION)
+    UI.info "Please install VirtualBox >= v#{MIN_VIRTUALBOX_VERSION}".red
+    exit(0)
+end
+
 VAGRANT_FILE_PATH        = File.dirname(__FILE__)
 TEMPLATE_PATH            = File.join(VAGRANT_FILE_PATH,'templates')
 CACHE_PATH               = File.join(VAGRANT_FILE_PATH,'cache')
@@ -401,36 +449,30 @@ Object.redefine_const(:DEFAULT_NO_PROXY, "#{DEFAULT_NO_PROXY},#{DEFAULT_PRIVATE_
 Object.redefine_const(:DEFAULT_NO_PROXY, "#{DEFAULT_NO_PROXY},#{DEFAULT_PUBLIC_IP}") unless first_public_ipv4.nil?
 INVENTORY_FILE_PATH      = ENV['INVENTORY_FILE_PATH'] || "#{TEMPLATE_PATH}/openshift/inventory.ini"
 
-# If the user is at home without VPN
+# the user is at home without VPN
 if !first_private_ipv4.nil?
     DEFAULT_HOST_IP = first_private_ipv4.ip_address
-# if the user is at home with VPN into Ford
+# the user is at home with VPN into corporate network
 elsif !first_private_ipv4.nil? and !first_public_ipv4.nil?
     DEFAULT_HOST_IP = first_private_ipv4.ip_address
-# if the user inside Ford network (both wired and wireless) and PublicWiFi
+# the user inside corporate network (both wired and wireless) and PublicWiFi
 elsif first_private_ipv4.nil? and !first_public_ipv4.nil?
-    DEFAULT_HOST_IP = first_private_ipv4.ip_address
+    DEFAULT_HOST_IP = first_public_ipv4.ip_address
 end
 
-if ENV.has_key?('ENABLE_HTTP_PROXY')
-    TRUTHY_VALUES = [true, 1, '1', 't', 'T', 'true', 'TRUE', 'y', 'Y', 'yes', 'YES']
-    FALSY_VALUES = [false, 0, '0', 'f', 'F', 'false', 'FALSE', 'n', 'N', 'no', 'NO']
-    Object.redefine_const(:ENABLE_HTTP_PROXY, true) if TRUTHY_VALUES.include? ENV['ENABLE_HTTP_PROXY']
-end
+redefine_constant('SKIP_HTTP_PROXY')
+redefine_constant('ENABLE_HTTP_PROXY')
+redefine_constant('OPENSHIFT_CONTAINERIZED')
+redefine_constant('OPENSHIFT_USE_CALICO_SDN')
+redefine_constant('OPENSHIFT_USE_TIGERA_CNX')
+redefine_constant('OPENSHIFT_ENABLE_ADDONS')
+redefine_constant('OPENSHIFT_DEPLOY_LOGGING')
+redefine_constant('OPENSHIFT_DEPLOY_MONITORING')
+redefine_constant('OPENSHIFT_USE_GIT_RELEASE')
 
-if ENV.has_key?('OPENSHIFT_USE_GIT_RELEASE')
-    TRUTHY_VALUES = [true, 1, '1', 't', 'T', 'true', 'TRUE', 'y', 'Y', 'yes', 'YES']
-    Object.redefine_const(:OPENSHIFT_USE_GIT_RELEASE, true) if TRUTHY_VALUES.include? ENV['OPENSHIFT_USE_GIT_RELEASE']
-end
-
-if ENV.has_key?('OPENSHIFT_CONTAINERIZED')
-    TRUTHY_VALUES = [true, 1, '1', 't', 'T', 'true', 'TRUE', 'y', 'Y', 'yes', 'YES']
-    Object.redefine_const(:OPENSHIFT_CONTAINERIZED, true) if TRUTHY_VALUES.include? ENV['OPENSHIFT_USE_GIT_RELEASE']
-end
-
-if ENV.has_key?('USE_TIGERA_CNX')
-    TRUTHY_VALUES = [true, 1, '1', 't', 'T', 'true', 'TRUE', 'y', 'Y', 'yes', 'YES']
-    Object.redefine_const(:USE_TIGERA_CNX, true) if TRUTHY_VALUES.include? ENV['USE_TIGERA_CNX']
+if MASTER_VM_DISK_COUNT < 3
+    UI.info "Please increase the addtional storage disk on master to #{MASTER_VM_DISK_COUNT} or more".red
+    exit(0)
 end
 
 ######################################################################
@@ -777,6 +819,8 @@ if ARGV[0] == 'up'
     ######################################################################
     # Configure and start CoreDNS service
     ######################################################################
+    #MASTER_IP_REVERSE_OCTETS_12, MASTER_IP_REVERSE_OCTETS_34 = MASTER_IP.split('.').reverse.each_slice(2).to_a
+    #INFRA_IP_REVERSE_OCTETS_12, INFRA_IP_REVERSE_OCTETS_34 = INFRA_IP.split('.').reverse.each_slice(2).to_a
 
     COREDNS_ZONE_DIR = "#{ARTIFACT_PATH}/coredns/zones"
     CLUSTER_ZONEFILE = File.join(COREDNS_ZONE_DIR,"db.#{OPENSHIFT_DOMAIN}")
@@ -1068,18 +1112,15 @@ resources = calculate_resource_allocation
 if OPENSHIFT_DEPLOYMENT_TYPE == 'origin'
     VAGRANT_BOX_URL            = CENTOS_BOX_URL
     VAGRANT_BOX_NAME           = CENTOS_BOX_NAME
+    VAGRANT_MACHINE_NAME       = 'openshift-origin'
 elsif OPENSHIFT_DEPLOYMENT_TYPE == 'openshift-enterprise'
     VAGRANT_BOX_URL            = RHEL_BOX_URL
     VAGRANT_BOX_NAME           = RHEL_BOX_NAME
-    if RHSM_USERNAME.strip.empty? and RHSM_PASSWORD_ACT_KEY.strip.empty? and !RHSM_ORG.strip.empty?
-        UI.info "You must set these Redhat subscription-manager environment variables".red
-        UI.info "\tRHSM_USERNAME\n\tRHSM_PASSWORD_ACT_KEY\n\tRHSM_ORG\n".yellow
-        exit(0)
-    end
+    VAGRANT_MACHINE_NAME       = 'openshift-enterprise'
 end
 
-if OPENSHIFT_DEPLOYMENT_TYPE == 'openshift-enterprise' and USE_TIGERA_CNX
-    Object.redefine_const(:CALICO_NODE_IMAGE, 'quay.io/tigera/cnx-node:v2.1.1')
+if OPENSHIFT_DEPLOYMENT_TYPE == 'openshift-enterprise' and OPENSHIFT_USE_TIGERA_CNX
+    Object.redefine_const(:CALICO_NODE_IMAGE, CNX_NODE_IMAGE)
 end
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
@@ -1124,9 +1165,15 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         end
     end
 
+    ## Generate Gluster storage drive names
+    glusterfs_drives=[]
+    (2..MASTER_VM_DISK_COUNT).each do |idx|
+        glusterfs_drives.push("/dev/sd#{idx.to_s(26).each_char.map {|i| ('a'..'z').to_a[i.to_i(26)]}.join}")
+    end
+
     provision_script = ""
     if !SKIP_HTTP_PROXY then
-        if on_ford_network? or ENABLE_HTTP_PROXY then
+        if on_corporate_network? or ENABLE_HTTP_PROXY then
             provision_script = <<~HEREDOC
                 export http_proxy='#{ENV['http_proxy']}'
                 export https_proxy='#{ENV['https_proxy']}'
@@ -1144,7 +1191,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         export OS_SDN_NETWORK_PLUGIN_NAME='#{OS_SDN_NETWORK_PLUGIN_NAME}'
         export CALICO_IPV4POOL_IPIP='#{CALICO_IPV4POOL_IPIP}'
         export CALICO_URL_POLICY_CONTROLLER='#{CALICO_URL_POLICY_CONTROLLER}'
-        export USE_TIGERA_CNX='#{USE_TIGERA_CNX}'
+        export OPENSHIFT_USE_TIGERA_CNX='#{OPENSHIFT_USE_TIGERA_CNX}'
         export CALICO_NODE_IMAGE='#{CALICO_NODE_IMAGE}'
         export CALICO_CNI_IMAGE='#{CALICO_CNI_IMAGE}'
         export CALICO_UPGRADE_IMAGE='#{CALICO_UPGRADE_IMAGE}'
@@ -1155,14 +1202,15 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         export OPENSHIFT_RELEASE_MINOR_VERSION='#{OPENSHIFT_RELEASE_MINOR_VERSION}'
         export OPENSHIFT_RELEASE='#{OPENSHIFT_RELEASE}'
         export OPENSHIFT_IMAGE_TAG='#{OPENSHIFT_IMAGE_TAG}'
-        export RHSM_USERNAME='#{RHSM_USERNAME.strip}'
-        export RHSM_PASSWORD_ACT_KEY='#{RHSM_PASSWORD_ACT_KEY.strip}'
         export RHSM_ORG='#{RHSM_ORG.strip}'
-        export RHSM_POOLID='#{RHSM_POOLID.strip}'
+        export RHSM_ACTIVATION_KEY='#{RHSM_ACTIVATION_KEY.strip}'
         export OPENSHIFT_USE_GIT_RELEASE='#{OPENSHIFT_USE_GIT_RELEASE}'
-        export SKIP_LDEV_OFFLINE_CACHE='#{SKIP_LDEV_OFFLINE_CACHE}'
         export OPENSHIFT_ANSIBLE_GIT_REL='#{OPENSHIFT_ANSIBLE_GIT_REL}'
         export OPENSHIFT_ANSIBLE_GIT_TAG='#{OPENSHIFT_ANSIBLE_GIT_TAG}'
+        export OPENSHIFT_DEPLOY_LOGGING='#{OPENSHIFT_DEPLOY_LOGGING}'
+        export OPENSHIFT_DEPLOY_MONITORING='#{OPENSHIFT_DEPLOY_MONITORING}'
+        export DOCKER_DISK='/dev/sdb'
+        export GLUSTERFS_DRIVES='"#{glusterfs_drives.join('", "')}"'
 
         export OPENSHIFT_DEPLOYMENT_TYPE='#{OPENSHIFT_DEPLOYMENT_TYPE}'
         export OPENSHIFT_DOMAIN='#{OPENSHIFT_DOMAIN}'
@@ -1181,8 +1229,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         export CACHE_PATH='#{CACHE_PATH}'
         export ARTIFACT_PATH='#{ARTIFACT_PATH}'
 
-        export DOCKER_DISK='/dev/sdb'
-        export GFS_STORAGE_DISK='/dev/sdc'
         export PATH="$PATH:/usr/local/bin:/usr/bin"
 
         currentscript="$0"
@@ -1200,80 +1246,15 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         # When your script is finished, exit with a call to the function, "finish":
         trap finish EXIT
     HEREDOC
-=begin
     ######################################################################
-    # Create and start infra node
-    ######################################################################
-    # See, https://www.vagrantup.com/docs/multi-machine/#specifying-a-primary-machine
-    config.vm.define "i1", primary: true do |infra|
-        infra.vm.hostname = INFRA_FQDN
-
-        infra.vm.provider :virtualbox do |vb|
-            vb.name    = "openshift-infra1"
-            vb.memory  = ENV['INFRA_VM_MEMORY'] || resources[:infra_memory]
-            vb.cpus    = ENV['INFRA_VM_CPUS']   || resources[:infra_cpus]
-
-            vb.customize ['modifyvm', :id, '--cableconnected1', 'on']
-            # https://serverfault.com/a/453260
-            # https://github.com/hashicorp/vagrant/issues/1313#issuecomment-343221070
-            # https://github.com/mitchellh/vagrant/issues/1807
-            # Manually configure DNS i.e. disable DHCP client configuration for NAT interface
-            vb.auto_nat_dns_proxy = false
-            # NAT proxy is flakey (times out frequently)
-            vb.customize ['modifyvm', :id, '--natdnsproxy1', 'off']
-            # Host DNS resolution required to support host proxies and faster global DNS resolution
-            vb.customize ['modifyvm', :id, '--natdnshostresolver1', 'off']
-            # Change the network card hardware for better performance
-            #vb.customize ["modifyvm", :id, "--nictype1", "virtio-net"]
-            # Assign unique mac address
-            vb.customize ['modifyvm', :id, '--macaddress1', 'auto']
-            # ioapic line is needed for multi-core systems
-            vb.customize ["modifyvm", :id, "--ioapic", "on"]
-            # guest should sync time if more than 10s off host
-            vb.customize ["guestproperty", "set", :id, "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold", 1000 ]
-            vb.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
-            vb.customize ["modifyvm", :id, "--vram", 8]
-            # --paravirtprovider none|default|legacy|minimal|hyperv|kvm: This setting specifies which
-            # paravirtualization interface to provide to the guest operating system.
-            vb.customize ["modifyvm", :id, "--paravirtprovider", "default"]
-            vb.customize ["modifyvm", :id, "--cpuexecutioncap", "100"]
-            # Adding a SATA controller that allows 4 hard drives
-            #vb.customize ["storagectl", :id, "--name", "SCSI", "--add", "scsi", "--bootable", "off" ]
-            vb.customize ["storagectl", :id, "--name", VBOX_DISK_CONTROLLER, "--add", "sata", "--controller", "IntelAHCI", "--portcount", 4, "--hostiocache", "on"]
-
-            (0..INFRA_VM_DISK_COUNT-1).each do |idisk|
-                infra_file_to_disk = File.join(VAGRANT_FILE_PATH, "infra1_disk#{idisk}.vdi")
-                if Vagrant::Util::Platform.windows?
-                    infra_file_to_disk = infra_file_to_disk.gsub('/', '\\')
-                end
-                unless File.exist?(infra_file_to_disk)
-                    #vb.customize ['createhd', '--filename', infra_file_to_disk, '--variant', 'Fixed', '--size', VM_STORAGE_DISK_SIZE_IN_GB.to_i * 1024]
-                    if idisk == 0
-                        vb.customize ['createhd', '--filename', infra_file_to_disk, '--size', 50 * 1024]
-                    else
-                        vb.customize ['createhd', '--filename', infra_file_to_disk, '--size', VM_STORAGE_DISK_SIZE_IN_GB.to_i * 1024]
-                    end
-                    #vb.customize ['modifyhd', infra_file_to_disk, '--type', 'writethrough']
-                    vb.customize ['storageattach', :id, '--storagectl', VBOX_DISK_CONTROLLER, '--port', idisk, '--device', 0, '--type', 'hdd', '--medium', infra_file_to_disk]
-                end
-            end
-        end
-        infra.vm.network :private_network, ip: "#{INFRA_IP}"
-        infra.vm.synced_folder '.', '/vagrant', disabled: true
-        if ARGV[0] == 'up'
-            infra.vm.provision "shell", inline: provision_script, keep_color: false, run: "once", privileged: true
-        end
-    end
-=end
-    ######################################################################
-    # Create and start master node
+    # Create and start openshift all-in-one node
     ######################################################################
     # See, https://www.vagrantup.com/docs/multi-machine/#specifying-a-primary-machine
-    config.vm.define "m1", primary: true do |master|
+    config.vm.define "#{VAGRANT_MACHINE_NAME}", primary: true do |master|
         master.vm.hostname = MASTER_FQDN
 
         master.vm.provider :virtualbox do |vb|
-            vb.name    = "openshift-master1"
+            vb.name    = VAGRANT_MACHINE_NAME
             vb.memory  = ENV['MASTER_VM_MEMORY'] || resources[:master_memory]
             vb.cpus    = ENV['MASTER_VM_CPUS']   || resources[:master_cpus]
 
@@ -1293,8 +1274,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
             vb.customize ['modifyvm', :id, '--macaddress1', 'auto']
             # ioapic line is needed for multi-core systems
             vb.customize ["modifyvm", :id, "--ioapic", "on"]
-            # Guest should sync time if more than 10s off host
-            vb.customize ["guestproperty", "set", :id, "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold", 1000 ]
+            # Guest should sync time if more than 5s off host
+            vb.customize ["guestproperty", "set", :id, "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold", 5000 ]
             vb.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
             vb.customize ["modifyvm", :id, "--vram", 8]
             # --paravirtprovider none|default|legacy|minimal|hyperv|kvm: This setting specifies which
@@ -1305,7 +1286,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
             vb.customize ["storagectl", :id, "--name", VBOX_DISK_CONTROLLER, "--add", "sata", "--controller", "IntelAHCI", "--portcount", 4, "--hostiocache", "on"]
 
             (0..MASTER_VM_DISK_COUNT-1).each do |mdisk|
-                master_file_to_disk = File.join(VAGRANT_FILE_PATH, "master1_disk#{mdisk}.vdi")
+                master_file_to_disk = File.join(VAGRANT_FILE_PATH, "#{VAGRANT_MACHINE_NAME}_disk#{mdisk}.vdi")
                 if Vagrant::Util::Platform.windows?
                     master_file_to_disk = master_file_to_disk.gsub('/', '\\')
                 end
@@ -1324,8 +1305,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         if ARGV[0] == 'up'
             master.vm.provision :file, :source => "#{TEMPLATE_PATH}/openshift/install-openshift.sh", :destination => "/home/vagrant/install-openshift.sh"
             master.vm.provision :file, :source => "#{INVENTORY_FILE_PATH}", :destination => "/home/vagrant/inventory.ini.tmpl"
-            #config.vm.provision "shell", inline: script , privileged: true, run: "always"
-            #config.vm.provision "install" , type: "shell", keep_color: false, run: "once",  path: "install.sh"
             master.vm.provision "shell", inline: provision_script, keep_color: false, run: "once", privileged: true
         end
     end
