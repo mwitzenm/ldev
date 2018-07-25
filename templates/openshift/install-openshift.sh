@@ -9,6 +9,8 @@ export OPENSHIFT_USER_PASSWD_ENC="$(echo $OPENSHIFT_USER_PASSWD | openssl passwd
 export ANSIBLE_ROOT=${SCRIPT_ROOT}
 
 echo "DEFAULT_HOST_IP=$DEFAULT_HOST_IP"
+echo "DEFAULT_PRIVATE_IP=${DEFAULT_PRIVATE_IP}"
+echo "DEFAULT_PUBLIC_IP=${DEFAULT_PUBLIC_IP}"
 
 if ! grep -q "console.${OPENSHIFT_DOMAIN}" /etc/hosts; then
 	echo "Updating /etc/hosts file"
@@ -454,3 +456,112 @@ echo " "
 journalctl --vacuum-time=10s
 
 exit 0
+
+## TODO: NODE PREP PLAYBOOK
+## https://github.com/heketi/vagrant-heketi/blob/master/openshift/roles/client/tasks/main.yml
+## https://github.com/jmnohales/OCP_INSTALL
+## https://github.com/barkbay/elastic-k8s-baremetal
+## https://github.com/giannisalinetti/ocp-inventory
+## https://github.com/heketi/vagrant-heketi
+
+# Dissable IPv6
+# https://www.thegeekdiary.com/centos-rhel-7-how-to-disable-ipv6/
+# https://www.ehowstuff.com/disable-ipv6-on-redhat-centos-6-centos-7/
+# https://www.unixmen.com/disable-ipv6-centos-7/
+# https://access.redhat.com/solutions/8709
+# https://rmohan.com/?p=7094
+
+#if [ "${OPENSHIFT_DEPLOYMENT_TYPE}" = "origin" ]; then
+#    systemctl restart origin-master-api
+#fi
+
+## CNS BUG:
+## heketi expects to be able to create glusterfs block hosting volume as replica 3,and silently fails
+## if it can't citing "no space" error
+#HEKETI_POD=$(oc -n glusterfs get pods | grep 'heketi-storage-' | awk '{print $1}')
+#HEKETI_ADMIN_KEY=$(oc get pods \
+#    --namespace glusterfs \
+#    -o jsonpath='{.items[*].spec.containers[?(.name=="'heketi'")].env[?(.name=="'HEKETI_ADMIN_KEY'")].value}' | \
+#    awk '{ print $1 }')
+#oc -n glusterfs exec -it ${HEKETI_POD} -- bash -c "\
+#    HEKETI_CLI_SERVER=http://localhost:8080 \
+#    HEKETI_CLI_USER=admin \
+#    HEKETI_CLI_KEY=${HEKETI_ADMIN_KEY} \
+#    heketi-cli volume create --size=100 --block --durability=none"
+
+## Delete storageClass
+#oc delete storageclass glusterfs-storage       || true
+#oc delete storageclass glusterfs-storage-block || true
+
+## Create storageClass
+## OPENSHIFT_DOMAIN='oc.local'
+#cat <<EOF | oc create -f -
+#apiVersion: storage.k8s.io/v1
+#kind: StorageClass
+#metadata:
+#  annotations:
+#    storageclass.kubernetes.io/is-default-class: "true"
+#  name: glusterfs-storage
+#  namespace: ""
+#parameters:
+#  volumetype: "none"
+#  resturl: http://heketi-storage-glusterfs.apps.${OPENSHIFT_DOMAIN}
+#  restuser: admin
+#  secretName: heketi-storage-admin-secret
+#  secretNamespace: glusterfs
+#provisioner: kubernetes.io/glusterfs
+#reclaimPolicy: Delete
+#---
+#apiVersion: storage.k8s.io/v1
+#kind: StorageClass
+#metadata:
+#  name: glusterfs-storage-block
+#  namespace: ""
+#parameters:
+#  chapauthenabled: "true"
+#  hacount: "1"
+#  restsecretname: heketi-storage-admin-secret-block
+#  restsecretnamespace: glusterfs
+#  resturl: http://heketi-storage-glusterfs.apps.${OPENSHIFT_DOMAIN}
+#  restuser: admin
+#provisioner: gluster.org/glusterblock
+#reclaimPolicy: Delete
+#EOF
+
+#cat <<EOF | kubectl create -f -
+#apiVersion: v1
+#kind: PersistentVolumeClaim
+#metadata:
+#  annotations:
+#    volume.beta.kubernetes.io/storage-provisioner: gluster.org/glusterblock
+#  labels:
+#    logging-infra: support
+#  name: logging-es-0
+#  namespace: logging
+#spec:
+#  accessModes:
+#  - ReadWriteOnce
+#  resources:
+#    requests:
+#      storage: 10Gi
+#  storageClassName: glusterfs-storage-block
+#EOF
+
+#cat <<EOF | kubectl create -f -
+#apiVersion: v1
+#kind: PersistentVolumeClaim
+#metadata:
+#  annotations:
+#    volume.beta.kubernetes.io/storage-class: glusterfs-storage-block
+#    volume.beta.kubernetes.io/storage-provisioner: gluster.org/glusterblock
+#  labels:
+#    logging-infra: support
+#  name: logging-es-0
+#  namespace: logging
+#spec:
+#  accessModes:
+#    - ReadWriteOnce
+#  resources:
+#    requests:
+#      storage: 10Gi
+#EOF

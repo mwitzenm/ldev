@@ -12,7 +12,7 @@ require 'vagrant/util/downloader'
 require 'vagrant/util/subprocess'
 require 'vagrant/util/which'
 
-LOCAL_DEV_VERSION            = '3.9.33-1'
+LOCAL_DEV_VERSION            = '3.9.33-3'
 
 SKIP_HTTP_PROXY              = ENV['SKIP_HTTP_PROXY'] || false
 ENABLE_HTTP_PROXY            = ENV['ENABLE_HTTP_PROXY'] || false
@@ -449,15 +449,17 @@ Object.redefine_const(:DEFAULT_NO_PROXY, "#{DEFAULT_NO_PROXY},#{DEFAULT_PRIVATE_
 Object.redefine_const(:DEFAULT_NO_PROXY, "#{DEFAULT_NO_PROXY},#{DEFAULT_PUBLIC_IP}") unless first_public_ipv4.nil?
 INVENTORY_FILE_PATH      = ENV['INVENTORY_FILE_PATH'] || "#{TEMPLATE_PATH}/openshift/inventory.ini"
 
-# the user is at home without VPN
-if !first_private_ipv4.nil?
-    DEFAULT_HOST_IP = first_private_ipv4.ip_address
-# the user is at home with VPN into corporate network
-elsif !first_private_ipv4.nil? and !first_public_ipv4.nil?
-    DEFAULT_HOST_IP = first_private_ipv4.ip_address
-# the user inside corporate network (both wired and wireless) and PublicWiFi
-elsif first_private_ipv4.nil? and !first_public_ipv4.nil?
+# The interface on which CoreDNS would listen on
+# When client is corporate network, then CoreDNS would be reachable
+# on this address, otherwise we will fallback to first priviate (RFC 1918) address
+# We are making a huge assumption here, since we are only accouunting following usecases:
+# 1. Client is on corporate network
+# 2. Client is at home/other locations connected to his/her router that doles out RFC 1918 addresses
+# 3. Client is at home/other lcoations and connect corporate VPN
+if !first_public_ipv4.nil? and first_public_ipv4.ip_address.start_with?('19.')
     DEFAULT_HOST_IP = first_public_ipv4.ip_address
+else
+    DEFAULT_HOST_IP = first_private_ipv4.ip_address
 end
 
 redefine_constant('SKIP_HTTP_PROXY')
@@ -501,13 +503,14 @@ if ARGV[0] == 'suspend'
         nssmBin = "#{ARTIFACT_PATH}/bin/nssm.exe".gsub('/', '\\')
         system "#{nssmBin} stop coredns"
 
+        DEFAULT_NAMESERVERS.delete("127.0.0.1")
         ns = DEFAULT_NAMESERVERS.map{|s| "'#{s}'"}.compact.join(',')
-
         reset_nic = <<~POWERSHELL
             $newDNSServers = #{ns}
             # $adapters = Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object { ($_.DNSServerSearchOrder -ne $null) -and ($_.IPAddress -ne $null) -and ($_.IpEnabled -eq $true) -and ($_.DHCPEnabled -eq $true) }
             $adapters = Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object { ($_.DNSServerSearchOrder -ne $null) -and ($_.IPAddress -ne $null) -and ($_.IpEnabled -eq $true) }
             $adapters | ForEach-Object {$_.SetDNSServerSearchOrder($newDNSServers)}
+            $adapters | Get-NetAdapter | Restart-NetAdapter
         POWERSHELL
 
         c = [
@@ -551,6 +554,7 @@ if ARGV[0] == 'resume'
         nssmBin = "#{ARTIFACT_PATH}/bin/nssm.exe".gsub('/', '\\')
         system "#{nssmBin} start coredns"
 
+        DEFAULT_NAMESERVERS.delete("127.0.0.1")
         # create copy of original array
         nameservers = DEFAULT_NAMESERVERS.inject([]) { |a,element| a << element.dup }
         nameservers.unshift '127.0.0.1'
@@ -750,73 +754,6 @@ if ARGV[0] == 'up'
     end
 
     ######################################################################
-    # Download and install oc
-    ######################################################################
-    #url = "https://github.com/openshift/origin/releases/download/v#{OC_VERSION}"
-    #installPath = ""
-    #downloadPath = File.expand_path("#{ARTIFACT_PATH}/bin/oc")
-    #if Vagrant::Util::Platform.windows?
-    #    url = "#{url}/openshift-origin-client-tools-v#{OC_VERSION}-#{OC_VERSION_GIT_BUILDID}-windows.zip"
-    #    installPath = File.expand_path("#{ARTIFACT_PATH}/bin/oc.exe")
-    #elsif Vagrant::Util::Platform.darwin?
-    #    url = "#{url}/openshift-origin-client-tools-v#{OC_VERSION}-#{OC_VERSION_GIT_BUILDID}-mac.zip"
-    #    installPath = File.expand_path("#{ARTIFACT_PATH}/bin/oc")
-    #elsif Vagrant::Util::Platform.linux?
-    #    url = "#{url}/openshift-origin-client-tools-v#{OC_VERSION}-#{OC_VERSION_GIT_BUILDID}-linux-64bit.tar.gz"
-    #    installPath = File.expand_path("#{ARTIFACT_PATH}/bin/oc")
-    #end
-    #sha256Expected = nil
-    #FileUtils.mkdir_p Pathname.new(installPath).dirname unless Dir.exist?(Pathname.new(installPath).dirname)
-    ##download_file('oc', OC_VERSION, url, installPath, sha256Expected) unless File.exists?(installPath)
-    #if Vagrant::Util::Platform.darwin? or Vagrant::Util::Platform.linux?
-    #    install_tool = <<~BASH
-    #        #!/bin/bash
-    #        set -o errexit
-    #        set -o nounset
-    #        set -o pipefail
-    #        if [ -f #{installPath} ]; then
-    #            #MAJOR_VERSION=$(oc version | grep openshift | awk '{print $2}' | awk -F "." '{ print $1}')
-    #            #MINOR_VERSION=$(oc version | grep openshift | awk -F "." '{ print $2}')
-    #            installed_oc_ver=$(#{installPath} version | grep oc | cut -d ' ' -f 2)
-    #            echo "Found oc v#{OC_VERSION} at #{installPath} .."
-    #            if [[ "${installed_oc_ver}" != "#{OC_VERSION}"* ]]; then
-    #                rm -rf #{installPath}
-    #            fi
-    #        fi
-    #        if [ ! -f #{installPath} ]; then
-    #            echo "Downloading oc v#{OC_VERSION} from #{url}"
-    #            curl \
-    #                --connect-timeout 20 \
-    #                --retry 5 \
-    #                --retry-delay 0 \
-    #                --retry-max-time 660 \
-    #                --insecure \
-    #                --progress-bar \
-    #                --fail \
-    #                --location \
-    #                --show-error \
-    #                --output #{downloadPath} \
-    #                #{url}
-    #            ostype=$(uname -s)
-    #            if [[ "$ostype" == "Darwin" ]]; then
-    #                unzip #{downloadPath} -d #{Pathname.new(installPath).dirname}
-    #            elif [[ "$ostype" == "Linux" ]]; then
-    #                tar -zxvf #{downloadPath} --strip-components=3 -C #{Pathname.new(installPath).dirname} > /dev/null 2>&1
-    #            fi
-    #            chmod +x #{installPath}
-    #            #rm -f #{downloadPath}
-    #        fi
-    #    BASH
-    #    result = Vagrant::Util::Subprocess.execute("/bin/sh", "-c", install_tool)
-    #    puts "#{result.stdout.chomp}"
-    #    if result.exit_code != 0
-    #        UI.info "Following errors occured: \n\tSTDOUT:#{result.stdout}\n\tSTDERR:#{result.stderr}".red
-    #        exit(0)
-    #    end
-    #elsif Vagrant::Util::Platform.windows? and File.exists?(downloadPath)
-    #end
-
-    ######################################################################
     # Configure and start CoreDNS service
     ######################################################################
     #MASTER_IP_REVERSE_OCTETS_12, MASTER_IP_REVERSE_OCTETS_34 = MASTER_IP.split('.').reverse.each_slice(2).to_a
@@ -1012,6 +949,9 @@ if ARGV[0] == 'up'
         end
 
         UI.info "Updating the local DNS setting".yellow
+        # Delete the loopback address if it already exists
+        DEFAULT_NAMESERVERS.delete("127.0.0.1")
+
         # create copy of original array
         nameservers = DEFAULT_NAMESERVERS.inject([]) { |a,element| a << element.dup }
         nameservers.unshift '127.0.0.1'
@@ -1021,6 +961,7 @@ if ARGV[0] == 'up'
             # Disable IPv6 across all interfaces
             #Get-NetAdapter | Select-Object name | Disable-NetAdapterBinding –ComponentID ms_tcpip6
             Get-NetAdapterBinding | Where-Object {($_.ElementName -eq 'ms_tcpip6') -and ($_.Enabled -eq $True)} | Disable-NetAdapterBinding -ComponentID ms_tcpip6
+
             # Update DNSSearchOrder
             $newDNSServers = #{ns}
             $adapters = Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object { ($_.DNSServerSearchOrder -ne $null) -and ($_.IPAddress -ne $null) -and ($_.IpEnabled -eq $true) }
@@ -1076,10 +1017,18 @@ if ARGV[0] == 'destroy'
         system "#{nssmBin} stop coredns"
         system "#{nssmBin} remove coredns confirm"
 
+        # Delete the loopback address if it already exists
+        DEFAULT_NAMESERVERS.delete("127.0.0.1")
+
+        # create copy of original array
+        nameservers = DEFAULT_NAMESERVERS.inject([]) { |a,element| a << element.dup }
+        ns = nameservers.map{|s| "'#{s}'"}.compact.join(',')
+
         reset_nic = <<~POWERSHELL
             $newDNSServers = #{ns}
             $adapters = Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object { ($_.DNSServerSearchOrder -ne $null) -and ($_.IPAddress -ne $null) -and ($_.IpEnabled -eq $true) }
             $adapters | ForEach-Object {$_.SetDNSServerSearchOrder($newDNSServers)}
+            $adapters | Get-NetAdapter | Restart-NetAdapter
         POWERSHELL
 
         c = [
@@ -1212,6 +1161,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         export DOCKER_DISK='/dev/sdb'
         export GLUSTERFS_DRIVES='"#{glusterfs_drives.join('", "')}"'
 
+        export DEFAULT_PRIVATE_IP='#{DEFAULT_PRIVATE_IP}'
+        export DEFAULT_PUBLIC_IP='#{DEFAULT_PUBLIC_IP}'
         export OPENSHIFT_DEPLOYMENT_TYPE='#{OPENSHIFT_DEPLOYMENT_TYPE}'
         export OPENSHIFT_DOMAIN='#{OPENSHIFT_DOMAIN}'
         export OPENSHIFT_API_PORT='#{OPENSHIFT_API_PORT}'
