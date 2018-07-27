@@ -3,9 +3,6 @@ Getting started with any distributed system that has several components expected
 
 All in one installations are a good remedy to this challenge. They provide a quick way to test a new technology by getting a working setup on a local machine. They can be used by developers in their local workflow and by system administrators to learn the basics of the deployment setup and configuration of various components.
 
-## Note
-The master branch of this repository now tracks RedHat OpenShift, if you would like to deploy CoreOS Tectonic based local development environment then please checkout git branches named [Tectonic-*](https://github.ford.com/Containers/localdev/branches)
-
 ## Audience
 - Developers
 - Continuous Integration (testing)
