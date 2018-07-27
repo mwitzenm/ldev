@@ -152,6 +152,6 @@ vagrant resume
 - Contribute - https://github.com/spuranam/ldev
 
 # Know Issues:
-- Localdev does not work when connect to Ford VPN servers on Windows platform using Cisco AnyConnect client since Ford’s AnyConnect configuration disables split tunneling. On MacOS workaround is to use native Cisco IPSec support instead of Cisco AnyConnect client.
+- Localdev does not work when connect to corporate VPN servers on Windows platform using Cisco AnyConnect client since our AnyConnect configuration disables split tunneling.
 - When switching networks on Windows, you must first [destroy](docs/usage.md#shutting-down-and-deleting-your-cluster) running localdev instances otherwise you will have trouble with your name resolution.
 - Localdev DNS server is configured to only support TCP/IP version 4, hence on windows you must disable TCP/IP version 6 if its enabled.
