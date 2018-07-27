@@ -12,7 +12,7 @@ require 'vagrant/util/downloader'
 require 'vagrant/util/subprocess'
 require 'vagrant/util/which'
 
-LOCAL_DEV_VERSION            = '3.9.33-3'
+LOCAL_DEV_VERSION            = '3.9.33-5'
 
 SKIP_HTTP_PROXY              = ENV['SKIP_HTTP_PROXY'] || false
 ENABLE_HTTP_PROXY            = ENV['ENABLE_HTTP_PROXY'] || false
@@ -142,7 +142,6 @@ VBOX_DISK_CONTROLLER         = 'CaaSVboxSATA'
 RHSM_ORG                     = ENV['RHSM_ORG'] || ''
 RHSM_ACTIVATION_KEY          = ENV['RHSM_ACTIVATION_KEY'] || ''
 
-#CENTOS_BOX_URL                = ENV['CENTOS_BOX_URL'] || 'https://cloud.centos.org/centos/7/vagrant/x86_64/images/CentOS-7-x86_64-Vagrant-1804_02.VirtualBox.box'
 CENTOS_BOX_URL               = ENV['CENTOS_BOX_URL'] || 'https://app.vagrantup.com/centos/boxes/7'
 CENTOS_BOX_NAME              = ENV['CENTOS_BOX_NAME'] || 'centos/7'
 
@@ -163,8 +162,7 @@ TRUTHY_VALUES = [true, 1, '1', 't', 'T', 'true', 'TRUE', 'y', 'Y', 'yes', 'YES']
 
 FALSY_VALUES = [false, 0, '0', 'f', 'F', 'false', 'FALSE', 'n', 'N', 'no', 'NO']
 
-# required_plugins = %w(vagrant-sshfs vagrant-cachier)
-required_plugins = %w()
+required_plugins = %w() #vagrant-sshfs
 
 # Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
 VAGRANTFILE_API_VERSION    = '2'
@@ -430,10 +428,10 @@ def virtualbox_version()
     end
 end
 
-if Gem::Version.new(virtualbox_version) < Gem::Version.new(MIN_VIRTUALBOX_VERSION)
-    UI.info "Please install VirtualBox >= v#{MIN_VIRTUALBOX_VERSION}".red
-    exit(0)
-end
+#if Gem::Version.new(virtualbox_version) < Gem::Version.new(MIN_VIRTUALBOX_VERSION)
+#    UI.info "Please install VirtualBox >= v#{MIN_VIRTUALBOX_VERSION}".red
+#    exit(0)
+#end
 
 VAGRANT_FILE_PATH        = File.dirname(__FILE__)
 TEMPLATE_PATH            = File.join(VAGRANT_FILE_PATH,'templates')
@@ -441,25 +439,38 @@ CACHE_PATH               = File.join(VAGRANT_FILE_PATH,'cache')
 ARTIFACT_PATH            = File.join(VAGRANT_FILE_PATH,'artifacts')
 PROVISION_LOGDIR         = File.join(ARTIFACT_PATH,'logs')
 PROVISION_LOGFILE        = ENV['PROVISION_LOGFILE'] || "/home/vagrant/share/artifacts/logs/provision_#{Time.now.strftime("%Y-%m-%d")}.log"
-DEFAULT_PRIVATE_IP       = first_private_ipv4.ip_address unless first_private_ipv4.nil?
-DEFAULT_PUBLIC_IP        = first_public_ipv4.ip_address unless first_public_ipv4.nil?
 DEFAULT_NAMESERVERS      = Resolv::DNS::Config.new.lazy_initialize.nameserver_port.map{|n| n[0]}
-# Redefine DEFAULT_NO_PROXY
-Object.redefine_const(:DEFAULT_NO_PROXY, "#{DEFAULT_NO_PROXY},#{DEFAULT_PRIVATE_IP}") unless first_private_ipv4.nil?
-Object.redefine_const(:DEFAULT_NO_PROXY, "#{DEFAULT_NO_PROXY},#{DEFAULT_PUBLIC_IP}") unless first_public_ipv4.nil?
 INVENTORY_FILE_PATH      = ENV['INVENTORY_FILE_PATH'] || "#{TEMPLATE_PATH}/openshift/inventory.ini"
 
-# The interface on which CoreDNS would listen on
-# When client is corporate network, then CoreDNS would be reachable
-# on this address, otherwise we will fallback to first priviate (RFC 1918) address
-# We are making a huge assumption here, since we are only accouunting following usecases:
-# 1. Client is on corporate network
-# 2. Client is at home/other locations connected to his/her router that doles out RFC 1918 addresses
-# 3. Client is at home/other lcoations and connect corporate VPN
-if !first_public_ipv4.nil? and first_public_ipv4.ip_address.start_with?('19.')
-    DEFAULT_HOST_IP = first_public_ipv4.ip_address
+# The interface on which CoreDNS would listen on the host should be
+# reachable from within the localdev VM. To that end this code make every effort
+# find a suitable host interface IP. Here are various scenarios that we need to handle:
+# 1. Client is on corporate network - get first 19.x host IP
+# 2. Client is not on corporate network - get first RFC 1918 address
+# 3. Client is connected to corporate network via VPN - get first RFC 1918 address
+#######################################################################
+# NOTE:
+#######################################################################
+# While this algorithm is not perfect i.e. i am making a huge assumption that while client
+# is either on corporate network or is not, however we have an escape hatch in the form of
+# environment varibale 'DEFAULT_HOST_IP' if set we will trust the user and move on.
+vbox_host_network = MASTER_IP.split('.').slice(0,3).join('.')
+
+all_host_ips = Socket.ip_address_list.select{|intf| intf.ipv4? and !intf.ipv4_loopback? and !intf.ipv4_multicast?}.collect(&:ip_address)
+public_ips = all_host_ips.delete_if{|i| i.start_with?(vbox_host_network)}.grep(/19\./)
+
+private_host_ips = Socket.ip_address_list.select{|intf| intf.ipv4? and !intf.ipv4_loopback? and !intf.ipv4_multicast? and intf.ipv4_private?}.collect(&:ip_address)
+private_ips = private_host_ips.delete_if{|i| i.start_with?(vbox_host_network)}
+
+if ENV.has_key?('DEFAULT_HOST_IP') and not ENV['DEFAULT_HOST_IP'].strip.empty?
+    DEFAULT_HOST_IP = ENV['DEFAULT_HOST_IP'].strip
+elsif !public_ips.empty?
+    DEFAULT_HOST_IP = public_ips[0]
+elsif !private_ips.empty?
+    DEFAULT_HOST_IP = private_ips[0]
 else
-    DEFAULT_HOST_IP = first_private_ipv4.ip_address
+    UI.info "Unable to determine host ip address".red
+    exit(0)
 end
 
 redefine_constant('SKIP_HTTP_PROXY')
@@ -585,6 +596,18 @@ if ARGV[0] == 'resume'
             UI.info "#{result.stdout}, #{result.stderr}".red
             exit
         end
+    end
+
+    # Check if we are able to resolve "m1.oc.local" domain
+    begin
+        ldev_master_ip = Socket::getaddrinfo(MASTER_FQDN, 'echo', Socket::AF_INET)[0][3]
+    rescue
+        ldev_master_ip = ""
+    end
+
+    if ldev_master_ip.strip.empty? or ldev_master_ip != MASTER_IP then
+        UI.info "Unable to #{MASTER_FQDN} to #{MASTER_IP}, ensure that coreDNS service is running".red
+        exit(0)
     end
 end
 
@@ -985,6 +1008,17 @@ if ARGV[0] == 'up'
         end
     end
 
+    # Check if we are able to resolve "m1.oc.local" domain
+    begin
+        ldev_master_ip = Socket::getaddrinfo(MASTER_FQDN, 'echo', Socket::AF_INET)[0][3]
+    rescue
+        ldev_master_ip = ""
+    end
+
+    if ldev_master_ip.strip.empty? or ldev_master_ip != MASTER_IP then
+        UI.info "Unable to #{MASTER_FQDN} to #{MASTER_IP}, ensure that coreDNS service is running".red
+        exit(0)
+    end
 end
 
 ######################################################################
@@ -1161,8 +1195,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         export DOCKER_DISK='/dev/sdb'
         export GLUSTERFS_DRIVES='"#{glusterfs_drives.join('", "')}"'
 
-        export DEFAULT_PRIVATE_IP='#{DEFAULT_PRIVATE_IP}'
-        export DEFAULT_PUBLIC_IP='#{DEFAULT_PUBLIC_IP}'
         export OPENSHIFT_DEPLOYMENT_TYPE='#{OPENSHIFT_DEPLOYMENT_TYPE}'
         export OPENSHIFT_DOMAIN='#{OPENSHIFT_DOMAIN}'
         export OPENSHIFT_API_PORT='#{OPENSHIFT_API_PORT}'

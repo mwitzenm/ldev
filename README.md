@@ -3,6 +3,9 @@ Getting started with any distributed system that has several components expected
 
 All in one installations are a good remedy to this challenge. They provide a quick way to test a new technology by getting a working setup on a local machine. They can be used by developers in their local workflow and by system administrators to learn the basics of the deployment setup and configuration of various components.
 
+## Note
+The master branch of this repository now tracks RedHat OpenShift, if you would like to deploy CoreOS Tectonic based local development environment then please checkout git branches named [Tectonic-*](https://github.ford.com/Containers/localdev/branches)
+
 ## Audience
 - Developers
 - Continuous Integration (testing)
@@ -19,30 +22,33 @@ All in one installations are a good remedy to this challenge. They provide a qui
 
 ## Minimum Requirements
 1. Install supported operating system (MacOS, Windows 10, Linux) with atleast 8GB of Memory and 4 CPU to assign to the VM
-1. Install [Git](https://git-scm.com/downloads), [Vagrant](https://www.vagrantup.com/downloads.html), and [VirtualBox](https://www.virtualbox.org/wiki/Downloads)
+1. Dependecies
+    1. [Git](https://git-scm.com/downloads)
+    1. [Vagrant v2.1.0+](https://www.vagrantup.com/downloads.html)
+    1. [VirtualBox v5.2.12+](https://www.virtualbox.org/)
+    1. NFS, resolvconf (Linux only)
 1. [Powershell 5+](https://docs.microsoft.com/en-us/powershell/scripting/setup/installing-windows-powershell?view=powershell-6) and [7zip](https://www.7-zip.org/a/7z1801-x64.exe) (windows only requirement)
 
 
 ## Quick Start
 1. Clone
     ```
-    git clone https://github.com/spuranam/ldev
+    git clone https://github.ford.com/Containers/localdev
 
     or
 
-    git clone git@github.com:spuranam/ldev.git
+    git clone git@github.ford.com:Containers/localdev.git
 
-    cd ldev
+    cd localdev
     ```
-1. copy the file [./RHSM.env.tpl](RHSM.env.tpl) to RHSM.env, update the file RHSM.env with your RHSM info
-    > ⚠ NOTE: This is only required if you intend to install OpenShift Enterprise
 1. Execute the command to install [OpenShift Enterprise](https://www.openshift.com/):
     ```
-    source $(pwd)/RHSM.env && vagrant up
+    vagrant up --provision
     ```
     > ⚠ NOTE: On windows you should execute these commands in powershell running in administrative context.
 
     > ☕ Take break, this steps take about 20 - 25 minutes to complete
+
 1. Execute the command to install [OpenShift Origin](https://www.openshift.org/):
     ```
     OPENSHIFT_DEPLOYMENT_TYPE='origin' vagrant up
@@ -50,12 +56,12 @@ All in one installations are a good remedy to this challenge. They provide a qui
     > ⚠ NOTE: On windows you should execute these commands in powershell running in administrative context.
 
     > ☕ Take break, this steps take about 20 - 25 minutes to complete
+
 1. Access the GUI [https://console.oc.local:8443](https://console.oc.local:8443)
     ```
     Username: admin
     Password: sandbox
     ```
-1. Follow [the instructions](/docs/usage.md#install-the-cli) to install kubectl/oc for your platform
 
 ## Localdev workflow
 
@@ -149,6 +155,6 @@ vagrant resume
 - Contribute - https://github.com/spuranam/ldev
 
 # Know Issues:
-- Localdev does not work when connect to Cisco VPN servers on Windows platform using Cisco AnyConnect client since FAnyConnect configuration disables split tunneling. On MacOS workaround is to use native Cisco IPSec support instead of Cisco AnyConnect client.
-- When switching networks on Windows, you must first destroy running localdev instances otherwise you will have trouble with your name resolution.
+- Localdev does not work when connect to Ford VPN servers on Windows platform using Cisco AnyConnect client since Ford’s AnyConnect configuration disables split tunneling. On MacOS workaround is to use native Cisco IPSec support instead of Cisco AnyConnect client.
+- When switching networks on Windows, you must first [destroy](docs/usage.md#shutting-down-and-deleting-your-cluster) running localdev instances otherwise you will have trouble with your name resolution.
 - Localdev DNS server is configured to only support TCP/IP version 4, hence on windows you must disable TCP/IP version 6 if its enabled.

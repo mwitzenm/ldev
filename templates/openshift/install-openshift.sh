@@ -9,8 +9,6 @@ export OPENSHIFT_USER_PASSWD_ENC="$(echo $OPENSHIFT_USER_PASSWD | openssl passwd
 export ANSIBLE_ROOT=${SCRIPT_ROOT}
 
 echo "DEFAULT_HOST_IP=$DEFAULT_HOST_IP"
-echo "DEFAULT_PRIVATE_IP=${DEFAULT_PRIVATE_IP}"
-echo "DEFAULT_PUBLIC_IP=${DEFAULT_PUBLIC_IP}"
 
 if ! grep -q "console.${OPENSHIFT_DOMAIN}" /etc/hosts; then
 	echo "Updating /etc/hosts file"
@@ -231,6 +229,7 @@ fi
 if ! getent group dockerroot | grep &>/dev/null "\bvagrant\b"; then
     usermod -aG dockerroot vagrant
     echo "{\"live-restore\": true,\"group\": \"dockerroot\"}" > /etc/docker/daemon.json
+    #echo "{\"live-restore\": true,\"group\": \"dockerroot\", \"dns\": [\"192.168.1.25\"]}" > /etc/docker/daemon.json
     systemctl restart docker
     ls -ltr /var/run/docker.sock
 fi
